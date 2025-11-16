@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
-import asyncHandler from 'express-async-handler';
 import Category from '@models/Category.js';
 import Product from '@models/Product.js';
 import ApiError from '@utils/ApiError.js';
 import ApiResponse from '@utils/ApiResponse.js';
 import { generateSlug } from '@utils/generators.js';
+import { Request, Response } from 'express';
+import asyncHandler from 'express-async-handler';
 
 /**
  * Get all categories (tree structure)

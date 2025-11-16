@@ -24,30 +24,9 @@ router.get('/stock/low', authenticate, restrictTo('admin', 'staff'), getLowStock
 router.get('/:id', optionalAuth, getProductById);
 
 // Protected routes - admin and staff can manage products
-router.post(
-  '/',
-  authenticate,
-  restrictTo('admin', 'staff'),
-  validate(createProductSchema),
-  createProduct
-);
-
-router.put(
-  '/:id',
-  authenticate,
-  restrictTo('admin', 'staff'),
-  validate(updateProductSchema),
-  updateProduct
-);
-
+router.post('/', authenticate, restrictTo('admin', 'staff'), validate(createProductSchema), createProduct);
+router.put('/:id', authenticate, restrictTo('admin', 'staff'), validate(updateProductSchema),updateProduct);
 router.delete('/:id', authenticate, restrictTo('admin'), deleteProduct);
-
-router.post(
-  '/:id/stock',
-  authenticate,
-  restrictTo('admin', 'staff'),
-  validate(adjustStockSchema),
-  adjustStock
-);
+router.post('/:id/stock',authenticate, restrictTo('admin', 'staff'),validate(adjustStockSchema), adjustStock);
 
 export default router;

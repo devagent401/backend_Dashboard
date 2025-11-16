@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import User from '@models/User.js';
 import ApiError from '@utils/ApiError.js';
@@ -12,13 +12,14 @@ import {
 } from '@utils/jwt.js';
 import { generateUsername, generatePassword } from '@utils/generators.js';
 import { AuthRequest } from '@middlewares/auth.middleware.js';
+import { Types } from 'mongoose';
 
 /**
  * Register new user
  * POST /api/v1/auth/register
  */
 export const register = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const { email, password, firstName, lastName } = req.body;
 
     // Check if user exists
@@ -42,13 +43,13 @@ export const register = asyncHandler(
 
     // Generate tokens
     const accessToken = generateAccessToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
 
     const refreshToken = generateRefreshToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
@@ -85,20 +86,17 @@ export const register = asyncHandler(
  * POST /api/v1/auth/login
  */
 export const login = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     // Find user with password
     const user = await User.findOne({ email }).select('+password');
-    if (!user || !user.isActive) {
-      throw ApiError.unauthorized('Invalid credentials');
-    }
-
+    if (!user || !user.isActive) throw ApiError.unauthorized('Invalid credentials');
+    
     // Check password
     const isPasswordCorrect = await user.comparePassword(password);
-    if (!isPasswordCorrect) {
-      throw ApiError.unauthorized('Invalid credentials');
-    }
+    if (!isPasswordCorrect) throw ApiError.unauthorized('Invalid credentials');
+    
 
     // Update last login
     user.lastLogin = new Date();
@@ -106,13 +104,13 @@ export const login = asyncHandler(
 
     // Generate tokens
     const accessToken = generateAccessToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
 
     const refreshToken = generateRefreshToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
@@ -150,31 +148,27 @@ export const login = asyncHandler(
  * POST /api/v1/auth/refresh
  */
 export const refreshToken = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const { refreshToken: token } = req.body;
 
-    if (!token) {
-      throw ApiError.unauthorized('Refresh token required');
-    }
+    if (!token) throw ApiError.unauthorized('Refresh token required');
 
     // Verify refresh token
     const decoded = verifyRefreshToken(token);
 
     // Find user
     const user = await User.findById(decoded.userId).select('+refreshToken');
-    if (!user || !user.isActive || user.refreshToken !== token) {
-      throw ApiError.unauthorized('Invalid refresh token');
-    }
-
+    if (!user || !user.isActive || user.refreshToken !== token) throw ApiError.unauthorized('Invalid refresh token');
+    
     // Generate new tokens
     const accessToken = generateAccessToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
 
     const newRefreshToken = generateRefreshToken({
-      userId: user._id.toString(),
+      userId: (user._id as Types.ObjectId).toString(),
       email: user.email,
       role: user.role,
     });
@@ -200,13 +194,8 @@ export const refreshToken = asyncHandler(
  * POST /api/v1/auth/logout
  */
 export const logout = asyncHandler(
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    if (req.user) {
-      // Clear refresh token from database
-      await User.findByIdAndUpdate(req.user.userId, {
-        $unset: { refreshToken: 1 },
-      });
-    }
+  async (req: Request, res: Response): Promise<void> => {
+    if (req.user) await User.findByIdAndUpdate((req.user as any).userId, { $unset: { refreshToken: 1 } });
 
     // Clear cookies
     clearAuthCookies(res);
@@ -220,13 +209,10 @@ export const logout = asyncHandler(
  * GET /api/v1/auth/me
  */
 export const getCurrentUser = asyncHandler(
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    const user = await User.findById(req.user?.userId);
+  async (req: Request, res: Response): Promise<void> => {
+    const user = await User.findById((req.user as any).userId);
 
-    if (!user) {
-      throw ApiError.notFound('User not found');
-    }
-
+    if (!user) throw ApiError.notFound('User not found');
     res.json(ApiResponse.success(user));
   }
 );
@@ -236,7 +222,7 @@ export const getCurrentUser = asyncHandler(
  * GET /api/v1/auth/google/callback
  */
 export const googleCallback = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const user = req.user as any;
 
     if (!user) {
